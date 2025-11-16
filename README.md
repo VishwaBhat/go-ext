@@ -60,6 +60,34 @@ package.
     )
   ```
 
+
+### `set` - Generic Set Implementation
+
+The `set` package provides a generic set data structure for any comparable type.
+
+**Usage:**
+
+```go
+func main() {
+    s := set.NewSet[string]()
+    
+    s.Add("apple")
+    s.Add("banana")
+    s.Add("apple") // Adding duplicate has no effect
+    
+    fmt.Println(s.Contains("apple")) // true
+    fmt.Println(s.Contains("orange")) // false
+    fmt.Println(s.Cardinality()) // 2
+    
+    s.Remove("banana")
+    fmt.Printf(s.Contains("banana")) // false
+    fmt.Printf(s.Cardinality()) // 1
+    
+    slice := s.ToSlice()
+    fmt.Printf(slice) // [apple] (order not guaranteed)
+}
+```
+
 ### `conc` - Concurrency Utilities
 
 The `conc` package provides tools for managing concurrent operations,
@@ -74,31 +102,31 @@ completion, returning results and the first error encountered.
 
 ```go
 func main() {
-// Create a new Tasker with a limit of 2 concurrent goroutines
-// and a timeout of 5 seconds for all tasks.
-tasker := conc.NewTasker[string, int](
-conc.WithMaxGoRoutines(2),
-conc.WithTimeout(5*time.Second),
-)
-
-// Set the task function. This function will be executed for each enqueued item.
-tasker.SetTask(func (v string) (int, error) {
-if len(v) <= 3 {
-return 0, fmt.Errorf("input(%s) cannot be less than 3 characters", v)
-}
-// Simulate an expensive computation
-time.Sleep(100 * time.Millisecond)
-return len(v), nil
-})
-
-// Enqueue tasks as on when the data is ready
-tasker.Enqueue("hello")
-tasker.Enqueue("world")
-tasker.Enqueue("programming")
-
-// Wait for all tasks to complete and get the results
-vals, err := tasker.Wait()
-fmt.Println(vals, err)
+    // Create a new Tasker with a limit of 2 concurrent goroutines
+    // and a timeout of 5 seconds for all tasks.
+    tasker := conc.NewTasker[string, int](
+      conc.WithMaxGoRoutines(2),
+      conc.WithTimeout(5*time.Second),
+    )
+    
+    // Set the task function. This function will be executed for each enqueued item.
+    tasker.SetTask(func (v string) (int, error) {
+      if len(v) <= 3 {
+        return 0, fmt.Errorf("input(%s) cannot be less than 3 characters", v)
+      }
+      // Simulate an expensive computation
+      time.Sleep(100 * time.Millisecond)
+      return len(v), nil
+    })
+    
+    // Enqueue tasks as on when the data is ready
+    tasker.Enqueue("hello")
+    tasker.Enqueue("world")
+    tasker.Enqueue("programming")
+    
+    // Wait for all tasks to complete and get the results
+    vals, err := tasker.Wait()
+    fmt.Println(vals, err)
 }
 ```
 
@@ -120,47 +148,20 @@ numbers := []int{1, 2, 3, 4, 5}
 
 // Define a mapping function
 mapFn := func (n int) (string, error) {
-time.Sleep(100 * time.Millisecond) // Simulate work
-if n == 3 {
-return "", fmt.Errorf("error processing number 3")
-}
-return fmt.Sprintf("Number: %d", n), nil
+  time.Sleep(100 * time.Millisecond) // Simulate work
+  if n == 3 {
+    return "", fmt.Errorf("error processing number 3")
+  }
+  return fmt.Sprintf("Number: %d", n), nil
 }
 
 // Map the numbers concurrently
 results, err := runner.Map(numbers, mapFn)
 if err != nil {
-fmt.Printf("Map error: %v\n", err) // Map error: error processing number 3
+  fmt.Printf("Map error: %v\n", err) // Map error: error processing number 3
 } else {
-fmt.Printf("Map results: %v\n", results)
+  fmt.Printf("Map results: %v\n", results)
 }
-}
-```
-
-### `set` - Generic Set Implementation
-
-The `set` package provides a generic set data structure for any comparable type.
-
-**Usage:**
-
-```go
-func main() {
-s := set.NewSet[string]()
-
-s.Add("apple")
-s.Add("banana")
-s.Add("apple") // Adding duplicate has no effect
-
-fmt.Println(s.Contains("apple")) // true
-fmt.Println(s.Contains("orange")) // false
-fmt.Println(s.Cardinality()) // 2
-
-s.Remove("banana")
-fmt.Printf(s.Contains("banana")) // false
-fmt.Printf(s.Cardinality()) // 1
-
-slice := s.ToSlice()
-fmt.Printf(slice) // [apple] (order not guaranteed)
 }
 ```
 
