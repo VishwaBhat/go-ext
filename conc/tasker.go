@@ -1,7 +1,6 @@
 package conc
 
 import (
-	"errors"
 	"sync"
 	"time"
 )
@@ -14,29 +13,32 @@ import (
 *
 * Usage:
 *
-* tasker := NewTasker[string,int]()
+* // Example to fetch Abc
+* tasker := NewTasker[User](
+*   WithMaxGoRoutines(10), 									// concurrency limit
+*   WithTimeout(100 * time.Millisecond),    // overall timeout
+* )
 *
-* tasker.SetTask(func(v string) (int, error) {
-* 	if len(v) <= 3 {
-* 		return 0, fmt.Errorf("input(%s) cannot be less than 3 characters", v)
-* 	}
-* 	res, err := expensiveComputation(v)
-* 	return res, err
-* })
+* for _, id := ids {
+* 	tasker.Enqueue(func() (User, error) {
+*			user, err := fetchUser(id)
+* 		if err != nil  {
+* 			return 0, fmt.Errorf("user fetch error for id(%d): %w", id, err)
+* 		}
+* 		return user, err
+* 	})
+* }
 *
-* tasker.Enqueue("hello")
-* tasker.Enqueue("world")
 *
-* vals, err := tasker.Wait()
+* users, err := tasker.Wait()
  */
 
-type Tasker[In, Out any] struct {
+type Tasker[Out any] struct {
 	limit       int
 	timeout     time.Duration
 	chanBufSize int
 	wg          sync.WaitGroup
 	sema        chan struct{}
-	taskFn      func(In) (Out, error)
 	timeoutCh   <-chan time.Time
 	timeoutOnce sync.Once
 	resCh       chan Out
@@ -44,7 +46,7 @@ type Tasker[In, Out any] struct {
 	inflight    bool
 }
 
-func NewTasker[In, Out any](opts ...Option) *Tasker[In, Out] {
+func NewTasker[Out any](opts ...Option) *Tasker[Out] {
 	var maxGoRoutines int
 	chanBufSize := defaultChBufferSize // min
 	timeout := defaultTimeout
@@ -65,7 +67,7 @@ func NewTasker[In, Out any](opts ...Option) *Tasker[In, Out] {
 		sema = make(chan struct{}, maxGoRoutines)
 	}
 
-	return &Tasker[In, Out]{
+	return &Tasker[Out]{
 		limit:       maxGoRoutines,
 		chanBufSize: chanBufSize,
 		timeout:     timeout,
@@ -75,7 +77,7 @@ func NewTasker[In, Out any](opts ...Option) *Tasker[In, Out] {
 	}
 }
 
-func (t *Tasker[In, Out]) reportFirstErr(err error) {
+func (t *Tasker[Out]) reportFirstErr(err error) {
 	select {
 	case t.errCh <- err:
 	default:
@@ -83,18 +85,13 @@ func (t *Tasker[In, Out]) reportFirstErr(err error) {
 	}
 }
 
-func (t *Tasker[In, Out]) SetTask(fn func(In) (Out, error)) {
-	if t.inflight {
-		panic("[tasker] task function cannot be modified in flight")
-	}
-	t.taskFn = fn
+func (t *Tasker[Out]) Close() {
+	t.wg.Wait()
+	close(t.resCh)
+	close(t.errCh)
 }
 
-func (t *Tasker[In, Out]) Enqueue(in In) {
-	if t.taskFn == nil {
-		panic("[tasker] task function is not defined")
-	}
-
+func (t *Tasker[Out]) Enqueue(fn func() (Out, error)) {
 	t.inflight = true
 
 	if t.timeoutCh == nil {
@@ -116,10 +113,10 @@ func (t *Tasker[In, Out]) Enqueue(in In) {
 
 		select {
 		case <-t.timeoutCh:
-			t.reportFirstErr(errors.New("timeout"))
+			t.reportFirstErr(ErrTimeout)
 			return
 		default:
-			out, err := t.taskFn(in)
+			out, err := fn()
 			if err != nil {
 				t.reportFirstErr(err)
 			} else {
@@ -130,7 +127,7 @@ func (t *Tasker[In, Out]) Enqueue(in In) {
 	})
 }
 
-func (t *Tasker[In, Out]) Wait() ([]Out, error) {
+func (t *Tasker[Out]) Wait() ([]Out, error) {
 	go func() {
 		t.wg.Wait()
 		close(t.resCh)

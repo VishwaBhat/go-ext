@@ -78,6 +78,17 @@ func Unique[T comparable](elements []T, equal func(t1, t2 T) bool) []T {
 	return unique
 }
 
+func Flatten[T any](elements [][]T) []T {
+	flattened := make([]T, 0, len(elements)*5) // approx 5 elements per entry
+	for _, els := range elements {
+		if len(els) == 0 {
+			continue
+		}
+		flattened = append(flattened, els...)
+	}
+	return flattened
+}
+
 func Each[T comparable](elements []T, fn func(T)) {
 	for _, el := range elements {
 		fn(el)

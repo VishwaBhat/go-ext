@@ -18,6 +18,7 @@ var (
 type Option struct {
 	maxGoRoutines int
 	timeout       time.Duration
+	eachTimeout   time.Duration
 	outBufSize    int
 }
 
@@ -27,6 +28,10 @@ func WithMaxGoRoutines(limit int) Option {
 
 func WithTimeout(timeout time.Duration) Option {
 	return Option{timeout: timeout}
+}
+
+func WithEachTimeout(timeout time.Duration) Option {
+	return Option{eachTimeout: timeout}
 }
 
 func WithOutBufferSize(size int) Option {
